@@ -1,0 +1,31 @@
+project_id = "uwsczfnieinqklhmutey"
+
+[functions.analyze-bin]
+verify_jwt = false
+
+[functions.get-maps-key]
+verify_jwt = false
+
+[functions.get-firebase-config]
+verify_jwt = false
+
+[functions.check-admin]
+verify_jwt = false
+
+[functions.manage-roles]
+verify_jwt = false
+
+[functions.register-user]
+verify_jwt = false
+
+[functions.complaints]
+verify_jwt = false
+
+[functions.verify-cleanup]
+verify_jwt = false
+
+[functions.validate-image]
+verify_jwt = false
+
+[functions.check-escalations]
+verify_jwt = false
