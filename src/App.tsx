@@ -16,7 +16,17 @@ import PublicTransparency from "./pages/PublicTransparency";
 
 const queryClient = new QueryClient();
 
-// Protected route wrapper
+// Layout wrapper for authenticated pages
+const AuthenticatedLayout = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <>
+      <Navbar />
+      {children}
+    </>
+  );
+};
+
+// Protected route wrapper - must be used inside AuthProvider
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   
@@ -56,16 +66,6 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   return <>{children}</>;
-};
-
-// Layout wrapper for authenticated pages
-const AuthenticatedLayout = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <>
-      <Navbar />
-      {children}
-    </>
-  );
 };
 
 /**
@@ -137,15 +137,22 @@ const AppRoutes = () => {
   );
 };
 
+// Inner app component that uses auth context
+const AppWithAuth = () => {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <Toaster />
+      <Sonner />
       <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <AppWithAuth />
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
