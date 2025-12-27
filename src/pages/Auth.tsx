@@ -69,15 +69,15 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-primary/10 rounded-full">
               <Leaf className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">CleanCity AI</CardTitle>
+          <CardTitle className="text-2xl font-bold text-foreground">Revo City</CardTitle>
           <CardDescription>Sign in to manage your waste bin analysis</CardDescription>
         </CardHeader>
         
