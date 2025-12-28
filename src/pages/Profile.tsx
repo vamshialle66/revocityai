@@ -171,24 +171,8 @@ const Profile = () => {
                   </div>
                 </div>
               </div>
-            </CardContent>
+          </CardContent>
           </Card>
-
-          {/* Admin Access Info (only show if not already admin) */}
-          {!isAdmin && (
-            <Card className="glass-card border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Crown className="w-5 h-5 text-muted-foreground" />
-                  Admin Access
-                </CardTitle>
-                <CardDescription>
-                  Admin privileges can only be granted by an existing administrator.
-                  Contact your organization's admin to request access.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
 
           {/* Change Password Card */}
           <Card className="glass-card border-border/50">
