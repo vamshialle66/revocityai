@@ -128,7 +128,7 @@ npm run dev
 
 **Application runs at:**
 
-http://localhost:8000
+(http://localhost:5173)
 
 
 
