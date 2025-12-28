@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json();
+    const { imageBase64, userFirebaseUid } = await req.json();
     
     if (!imageBase64) {
       throw new Error('No image provided');
@@ -206,6 +207,49 @@ Be accurate, professional, and provide actionable intelligence.`
     }
 
     console.log('Analysis result:', analysisResult);
+
+    // Save scan to database using service role (bypasses RLS)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Determine status and data from analysis result
+    const statusMap: Record<string, string> = {
+      'empty': 'empty',
+      'partial': 'half-filled',
+      'full': 'overflowing',
+      'overflowing': 'overflowing',
+      'hazardous': 'overflowing',
+      'half-filled': 'half-filled'
+    };
+
+    const binStatus = analysisResult.bin_status?.status || analysisResult.status || 'half-filled';
+    const firestoreStatus = statusMap[binStatus] || 'half-filled';
+    const fillLevel = analysisResult.bin_status?.fill_percentage || analysisResult.percentage || 50;
+    const recommendation = analysisResult.recommendation || analysisResult.suggested_actions?.[0] || '';
+    const confidence = analysisResult.confidence?.score || analysisResult.ai_confidence || 80;
+    const hygieneRisk = analysisResult.hygiene_assessment?.public_health_threat || 'low';
+    const odorRisk = analysisResult.hygiene_assessment?.odor_risk || 'low';
+    const diseaseRisk = analysisResult.hygiene_assessment?.pest_risk || 'low';
+    const mosquitoRisk = analysisResult.hygiene_assessment?.pest_risk || 'low';
+
+    const { error: insertError } = await supabaseAdmin.from('scan_history').insert({
+      user_firebase_uid: userFirebaseUid,
+      fill_level: fillLevel,
+      status: firestoreStatus,
+      recommendation: recommendation,
+      ai_confidence: confidence,
+      hygiene_risk: hygieneRisk,
+      odor_risk: odorRisk,
+      disease_risk: diseaseRisk,
+      mosquito_risk: mosquitoRisk,
+    });
+
+    if (insertError) {
+      console.error('Failed to save scan history:', insertError);
+    } else {
+      console.log('Scan history saved for user:', userFirebaseUid);
+    }
 
     return new Response(JSON.stringify(analysisResult), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
