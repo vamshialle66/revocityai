@@ -279,23 +279,16 @@ const UserRoleManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={userRecord.role || "none"}
+                        value={userRecord.role || "user"}
                         onValueChange={(v) => {
-                          if (v === "none") {
-                            handleRemoveUser(userRecord.firebase_uid);
-                          } else {
-                            handleChangeRole(userRecord.firebase_uid, v as "admin" | "user");
-                          }
+                          handleChangeRole(userRecord.firebase_uid, v as "admin" | "user");
                         }}
                         disabled={userRecord.firebase_uid === user?.uid}
                       >
                         <SelectTrigger className="w-28">
-                          <SelectValue placeholder="No role" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">
-                            <span className="text-muted-foreground">No role</span>
-                          </SelectItem>
                           <SelectItem value="user">
                             <span className="flex items-center gap-2">
                               <Users className="w-3 h-3" /> User
