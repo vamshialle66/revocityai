@@ -51,7 +51,7 @@ serve(async (req) => {
       }
     } else {
       // Insert new user
-      const { error } = await supabaseAdmin
+      const { error: userError } = await supabaseAdmin
         .from("users")
         .insert({
           firebase_uid: firebaseUid,
@@ -60,10 +60,24 @@ serve(async (req) => {
           last_login: new Date().toISOString(),
         });
 
-      if (error) {
-        console.error("Error inserting user:", error);
+      if (userError) {
+        console.error("Error inserting user:", userError);
       } else {
         console.log(`Registered new user ${firebaseUid} (${email})`);
+        
+        // Auto-assign default "user" role
+        const { error: roleError } = await supabaseAdmin
+          .from("user_roles")
+          .insert({
+            user_id: firebaseUid,
+            role: "user",
+          });
+        
+        if (roleError) {
+          console.error("Error assigning default role:", roleError);
+        } else {
+          console.log(`Assigned default 'user' role to ${firebaseUid}`);
+        }
       }
     }
 
