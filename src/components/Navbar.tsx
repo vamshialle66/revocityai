@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import ThemeToggle from "./ThemeToggle";
+import NotificationBell from "./NotificationBell";
 
 /**
  * Navbar Component
@@ -67,6 +68,9 @@ const Navbar = () => {
                   </Link>
                 );
               })}
+
+            {/* Notification Bell */}
+            {user && <NotificationBell />}
 
             {/* Theme Toggle */}
             <ThemeToggle />
