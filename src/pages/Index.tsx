@@ -1,13 +1,18 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Zap, Shield, BarChart3, ArrowRight } from "lucide-react";
+import { Sparkles, Zap, Shield, BarChart3, ArrowRight, MapPin, MapPinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ImageUpload from "@/components/ImageUpload";
 import AnalysisResultPanel from "@/components/AnalysisResultPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveAnalysis } from "@/lib/firestore";
-import { supabase } from "@/integrations/supabase/client";
+import { useGeolocation } from "@/hooks/useGeolocation";
+
+interface LocationData {
+  latitude: number;
+  longitude: number;
+}
 
 interface ComprehensiveAnalysis {
   bin_status: {
@@ -45,11 +50,12 @@ const Index = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { state: geoState, requestLocation, clearLocation } = useGeolocation();
   
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<ComprehensiveAnalysis | null>(null);
-
+  const [capturedLocation, setCapturedLocation] = useState<LocationData | null>(null);
   const handleReportIssue = useCallback(() => {
     if (analysisResult && selectedImage) {
       sessionStorage.setItem('pendingAnalysis', JSON.stringify({
@@ -63,12 +69,16 @@ const Index = () => {
   const handleImageSelect = useCallback((file: File, preview: string) => {
     setSelectedImage(preview);
     setAnalysisResult(null);
-  }, []);
+    setCapturedLocation(null);
+    clearLocation();
+  }, [clearLocation]);
 
   const handleClearImage = useCallback(() => {
     setSelectedImage(null);
     setAnalysisResult(null);
-  }, []);
+    setCapturedLocation(null);
+    clearLocation();
+  }, [clearLocation]);
 
   const handleAnalyze = useCallback(async () => {
     if (!selectedImage || !user) return;
@@ -76,13 +86,31 @@ const Index = () => {
     setIsAnalyzing(true);
     setAnalysisResult(null);
 
+    // Attempt to capture location (non-blocking, graceful fallback)
+    let locationData: LocationData | null = null;
+    try {
+      const location = await requestLocation();
+      if (location) {
+        locationData = location;
+        setCapturedLocation(location);
+      }
+    } catch {
+      // Location capture failed - continue without it
+      console.log("Location capture failed, continuing without geo-tag");
+    }
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-bin`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: selectedImage }),
+          body: JSON.stringify({ 
+            imageBase64: selectedImage,
+            userFirebaseUid: user.uid,
+            latitude: locationData?.latitude ?? null,
+            longitude: locationData?.longitude ?? null,
+          }),
         }
       );
 
@@ -114,17 +142,7 @@ const Index = () => {
           data.suggested_actions || [data.recommendation]
         );
 
-        await supabase.from('scan_history').insert({
-          user_firebase_uid: user.uid,
-          fill_level: data.bin_status.fill_percentage,
-          status: firestoreStatus,
-          recommendation: data.recommendation || data.suggested_actions?.[0] || '',
-          ai_confidence: data.confidence?.score || 0,
-          hygiene_risk: data.hygiene_assessment?.public_health_threat || 'low',
-          odor_risk: data.hygiene_assessment?.odor_risk || 'low',
-          disease_risk: data.hygiene_assessment?.pest_risk || 'low',
-          mosquito_risk: data.hygiene_assessment?.pest_risk || 'low',
-        });
+        // Scan history is now saved by the edge function
 
         toast({
           title: "Analysis Complete",
@@ -180,13 +198,7 @@ const Index = () => {
           [data.recommendation]
         );
 
-        await supabase.from('scan_history').insert({
-          user_firebase_uid: user.uid,
-          fill_level: data.percentage || 50,
-          status: legacyStatus,
-          recommendation: data.recommendation || '',
-          ai_confidence: 80,
-        });
+        // Scan history is now saved by the edge function
 
         toast({
           title: "Analysis Complete",
@@ -204,7 +216,7 @@ const Index = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedImage, toast, user]);
+  }, [selectedImage, toast, user, requestLocation]);
 
   const features = [
     {
@@ -314,12 +326,40 @@ const Index = () => {
             />
 
             {selectedImage && !isAnalyzing && !analysisResult && (
-              <div className="flex justify-center mt-6 animate-fade-in">
+              <div className="flex flex-col items-center gap-3 mt-6 animate-fade-in">
                 <Button onClick={handleAnalyze} size="lg" className="px-8">
                   <Sparkles className="w-4 h-4 mr-2" />
                   Analyze with AI
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  Location will be captured automatically if available
+                </p>
+              </div>
+            )}
+
+            {/* Location Status Indicator */}
+            {(isAnalyzing || analysisResult) && (
+              <div className="mt-4 flex justify-center animate-fade-in">
+                {geoState.status === "loading" && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span>Capturing location...</span>
+                  </div>
+                )}
+                {geoState.status === "success" && capturedLocation && (
+                  <div className="flex items-center gap-2 text-sm text-primary">
+                    <MapPin className="w-4 h-4" />
+                    <span>Location Captured</span>
+                  </div>
+                )}
+                {(geoState.status === "denied" || geoState.status === "unavailable" || geoState.status === "timeout") && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPinOff className="w-4 h-4" />
+                    <span>Location not available — continuing without geo-tag</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
