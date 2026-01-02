@@ -123,12 +123,12 @@ const Dashboard = () => {
     init();
   }, [loadComplaints, loadScans]);
 
-  // Subscribe to real-time updates for complaints
+  // Subscribe to real-time updates for complaints (refresh data only - notifications handled by NotificationContext)
   useEffect(() => {
     if (!user) return;
 
     const channel = supabase
-      .channel('complaints-status-updates')
+      .channel('complaints-data-refresh')
       .on(
         'postgres_changes',
         {
@@ -137,25 +137,8 @@ const Dashboard = () => {
           table: 'complaints',
           filter: `reporter_firebase_uid=eq.${user.uid}`,
         },
-        (payload) => {
-          const updated = payload.new as { complaint_status: string; complaint_id: string; address?: string };
-          const oldStatus = (payload.old as { complaint_status: string })?.complaint_status;
-          
-          // Only notify if status actually changed
-          if (updated.complaint_status !== oldStatus) {
-            const statusLabels: Record<string, string> = {
-              pending: 'Pending',
-              in_progress: 'In Progress',
-              resolved: 'Resolved',
-            };
-            
-            toast({
-              title: "Complaint Status Updated",
-              description: `Complaint #${updated.complaint_id.slice(0, 8)} at ${updated.address || 'Unknown location'} is now ${statusLabels[updated.complaint_status] || updated.complaint_status}`,
-            });
-          }
-          
-          // Refresh the data
+        () => {
+          // Just refresh the data - notifications are handled globally
           loadComplaints();
         }
       )
