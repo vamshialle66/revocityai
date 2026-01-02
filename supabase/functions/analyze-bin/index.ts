@@ -82,10 +82,17 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, userFirebaseUid } = await req.json();
+    const { imageBase64, userFirebaseUid, latitude, longitude } = await req.json();
     
     if (!imageBase64) {
       throw new Error('No image provided');
+    }
+
+    // Log location data if provided
+    if (latitude !== null && longitude !== null) {
+      console.log(`Location provided: ${latitude}, ${longitude}`);
+    } else {
+      console.log('No location data provided');
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -302,7 +309,8 @@ Be accurate, professional, and provide actionable intelligence.`
     const diseaseRisk = analysisResult.hygiene_assessment?.pest_risk || 'low';
     const mosquitoRisk = analysisResult.hygiene_assessment?.pest_risk || 'low';
 
-    const { error: insertError } = await supabaseAdmin.from('scan_history').insert({
+    // Build insert data with optional location
+    const insertData: Record<string, unknown> = {
       user_firebase_uid: userFirebaseUid,
       fill_level: fillLevel,
       status: firestoreStatus,
@@ -312,7 +320,16 @@ Be accurate, professional, and provide actionable intelligence.`
       odor_risk: odorRisk,
       disease_risk: diseaseRisk,
       mosquito_risk: mosquitoRisk,
-    });
+    };
+
+    // Add location data if available
+    if (latitude !== null && longitude !== null && 
+        typeof latitude === 'number' && typeof longitude === 'number') {
+      insertData.latitude = latitude;
+      insertData.longitude = longitude;
+    }
+
+    const { error: insertError } = await supabaseAdmin.from('scan_history').insert(insertData);
 
     if (insertError) {
       console.error('Failed to save scan history:', insertError);
