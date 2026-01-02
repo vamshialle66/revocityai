@@ -51,6 +51,9 @@ const ComplaintForm = ({ onSubmitSuccess }: ComplaintFormProps) => {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [reporterNotes, setReporterNotes] = useState("");
 
+  const [autoLocationAttempted, setAutoLocationAttempted] = useState(false);
+  const [autoLocationStatus, setAutoLocationStatus] = useState<'idle' | 'loading' | 'success' | 'failed'>('idle');
+
   // Check for pending analysis from Index page
   useEffect(() => {
     const pendingData = sessionStorage.getItem('pendingAnalysis');
@@ -66,6 +69,62 @@ const ComplaintForm = ({ onSubmitSuccess }: ComplaintFormProps) => {
       }
     }
   }, []);
+
+  // Auto-attempt location capture on mount
+  useEffect(() => {
+    if (!autoLocationAttempted && !latitude) {
+      attemptAutoLocation();
+    }
+  }, []);
+
+  // Attempt automatic location capture (non-blocking)
+  const attemptAutoLocation = useCallback(async () => {
+    if (autoLocationAttempted) return;
+    setAutoLocationAttempted(true);
+    setAutoLocationStatus('loading');
+
+    if (!navigator.geolocation) {
+      setAutoLocationStatus('failed');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setLatitude(lat);
+        setLongitude(lng);
+        setAutoLocationStatus('success');
+
+        // Try to reverse geocode
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+          );
+          const data = await response.json();
+          if (data.display_name) {
+            setAddress(data.display_name);
+          }
+          if (data.address) {
+            setAreaName(
+              data.address.suburb ||
+                data.address.neighbourhood ||
+                data.address.city_district ||
+                data.address.city ||
+                ""
+            );
+          }
+        } catch (error) {
+          console.error("Reverse geocoding failed:", error);
+        }
+      },
+      () => {
+        setAutoLocationStatus('failed');
+        // Don't show error toast for auto-capture - user can manually capture
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }, [autoLocationAttempted]);
 
   // Get current location
   const getCurrentLocation = useCallback(() => {
@@ -377,6 +436,28 @@ const ComplaintForm = ({ onSubmitSuccess }: ComplaintFormProps) => {
             </span>
             Capture Location
           </Label>
+          
+          {/* Auto-location status indicator */}
+          {autoLocationStatus === 'loading' && !latitude && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-muted/30 rounded-lg">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Automatically capturing your location...</span>
+            </div>
+          )}
+
+          {autoLocationStatus === 'success' && latitude && !isGettingLocation && (
+            <div className="flex items-center gap-2 text-sm text-primary p-2 bg-primary/10 rounded-lg">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Location auto-captured successfully!</span>
+            </div>
+          )}
+
+          {autoLocationStatus === 'failed' && !latitude && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-muted/30 rounded-lg">
+              <MapPin className="w-4 h-4" />
+              <span>Location not available — please capture manually below</span>
+            </div>
+          )}
           
           <Button
             onClick={getCurrentLocation}
